@@ -84,16 +84,25 @@ class SentinelHybridEnv(gym.Env):
             self.trade_duration += 1
             price_change_pct = (current_price - self.entry_price) / self.entry_price if self.position == 1 else (self.entry_price - current_price) / self.entry_price
             
-            # Heavy penalty for riding massive drawdowns (forces it to cut losses!)
-            if price_change_pct < -0.01: # 1% raw move against us
-                reward -= abs(price_change_pct) * self.lot_size_multiplier * 100.0 * self.balance
+            # 1. Extreme penalty for riding drawdowns (Tighter 0.5% leash instead of 1.0%)
+            if price_change_pct < -0.005: 
+                reward -= abs(price_change_pct) * self.lot_size_multiplier * 200.0 * self.balance
+            
+            # 2. Time decay penalty (forces it to close trades if market goes sideways)
+            reward -= (self.trade_duration * 0.05)
                 
         elif action == 7 and self.position != 0:
             price_change_pct = (current_price - self.entry_price) / self.entry_price if self.position == 1 else (self.entry_price - current_price) / self.entry_price
             position_size = self.balance * self.lot_size_multiplier
             actual_profit = position_size * price_change_pct * 100.0 # 100x Leverage
             
-            reward += actual_profit
+            # Asymmetric Reward Profile: Reward winning trades 2x to build a greedy killer instinct
+            if actual_profit > 0:
+                reward += (actual_profit * 2.0)
+            else:
+                # Still penalize finalized losses
+                reward += actual_profit
+                
             self.balance += actual_profit
             
             self.position = 0

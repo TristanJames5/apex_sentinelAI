@@ -105,7 +105,7 @@ def add_xgboost_predictions(df, pair):
     return df
 
 PAIRS = ["EURUSD=X", "BTC-USD", "GC=F"]
-TOTAL_STEPS = 5000000 
+TOTAL_STEPS = 10000000 # PUSHED TO THE LIMITS (10 Million Steps)
 STEPS_PER_PAIR = TOTAL_STEPS // len(PAIRS)
 
 dummy_df = pd.DataFrame(np.random.rand(100, 5), columns=['Open', 'High', 'Low', 'Close', 'Volume'])
@@ -120,8 +120,9 @@ if os.path.exists("sentinel_model.zip"):
     print("Found existing Sentinel Brain! Resuming training...")
     model = PPO.load("sentinel_model.zip", env=dummy_env)
 else:
-    print("Initializing new PPO Fund Manager...")
-    model = PPO("MlpPolicy", dummy_env, verbose=1, learning_rate=0.0003)
+    print("Initializing new ULTRA PPO Fund Manager...")
+    # Lower learning rate & higher entropy (ent_coef) forces the AI to explore and find smarter strategies instead of taking lazy shortcuts
+    model = PPO("MlpPolicy", dummy_env, verbose=1, learning_rate=0.0001, ent_coef=0.02, batch_size=256)
 
 discord_callback = DiscordCallback(total_timesteps=TOTAL_STEPS)
 
@@ -130,7 +131,8 @@ for pair in PAIRS:
     print(f" 🛡️ TRAINING SENTINEL ON: {pair}")
     print(f"========================================")
     
-    data = yf.download(pair, period="60d", interval="1h") 
+    # Pushing limits: Give the AI 720 days (approx 2 years) of hourly data instead of just 60 days!
+    data = yf.download(pair, period="720d", interval="1h") 
     if isinstance(data.columns, pd.MultiIndex):
         data.columns = data.columns.get_level_values(0)
     data = data[['Open', 'High', 'Low', 'Close', 'Volume']].dropna()
