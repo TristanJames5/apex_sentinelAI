@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 # The Webhook URL you provided
-WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/1553775394887303240/QY3e3vfF1qzSCtKdvmpyU69LVUy_yajqcR1uSBjb2kfeYeYoltlvpBxe1iF9aAEQfHLP")
+WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
 def send_training_update(step, total_steps, current_reward, win_rate):
     """ Sends Kaggle/Colab Training Progress to Discord """
