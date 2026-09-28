@@ -1,0 +1,7 @@
+stable-baselines3
+yfinance
+pandas
+numpy
+xgboost
+gymnasium
+requests

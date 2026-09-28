@@ -1,0 +1,28 @@
+{
+  "pair": "XRP",
+  "ticker": "XRP-USD",
+  "trained_on": "2026-09-27 14:00 UTC",
+  "train_acc": 0.6831,
+  "test_acc": 0.6657,
+  "overfit_gap": 0.0174,
+  "n_train": 10315,
+  "n_test": 4421,
+  "features": [
+    "Daily_Bias",
+    "Session",
+    "Zone_Pct",
+    "EMA_Dist",
+    "Price_SMA50",
+    "EMA_Cross",
+    "RSI_norm",
+    "FVG_Bull",
+    "FVG_Bear",
+    "OB_Bull",
+    "OB_Bear",
+    "Swept_High",
+    "Swept_Low"
+  ],
+  "sl_atr": 1.2,
+  "tp_atr": 3.0,
+  "status": "LIVE-READY"
+}

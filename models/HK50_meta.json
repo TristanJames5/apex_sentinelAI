@@ -1,0 +1,28 @@
+{
+  "pair": "HK50",
+  "ticker": "^HSI",
+  "trained_on": "2026-09-27 13:59 UTC",
+  "train_acc": 0.8501,
+  "test_acc": 0.571,
+  "overfit_gap": 0.2791,
+  "n_train": 1461,
+  "n_test": 627,
+  "features": [
+    "Daily_Bias",
+    "Session",
+    "Zone_Pct",
+    "EMA_Dist",
+    "Price_SMA50",
+    "EMA_Cross",
+    "RSI_norm",
+    "FVG_Bull",
+    "FVG_Bear",
+    "OB_Bull",
+    "OB_Bear",
+    "Swept_High",
+    "Swept_Low"
+  ],
+  "sl_atr": 1.2,
+  "tp_atr": 3.0,
+  "status": "CAUTION"
+}
