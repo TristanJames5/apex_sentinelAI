@@ -38,34 +38,70 @@ class DiscordCallback(BaseCallback):
 
 def add_xgboost_predictions(df, pair):
     """
-    Pre-processes the dataframe to include XGBoost probabilities so PPO can read them.
-    This replaces raw noisy price with pure machine-learning confidence scores.
+    Pre-processes the dataframe to include real XGBoost probabilities.
+    Calculates technical features (EMA, RSI, ATR) to match the trained model's expectations.
     """
-    model_path = f"models/{pair}_model.json"
+    # 1. Calculate Technical Indicators
+    df['EMA9'] = df['Close'].ewm(span=9).mean()
+    df['EMA21'] = df['Close'].ewm(span=21).mean()
+    df['SMA50'] = df['Close'].rolling(50).mean()
     
-    # If we have a trained XGBoost model for this pair, use it!
+    # ATR
+    tr = np.maximum(df['High'] - df['Low'], 
+                    np.maximum(abs(df['High'] - df['Close'].shift(1)), 
+                               abs(df['Low'] - df['Close'].shift(1))))
+    df['ATR'] = tr.rolling(14).mean()
+    
+    # RSI
+    delta = df['Close'].diff()
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = (-delta.clip(upper=0)).rolling(14).mean()
+    df['RSI'] = 100 - (100 / (1 + gain / loss.replace(0, np.nan)))
+    
+    # 2. Build Feature Matrix for XGBoost
+    # FEATURE_COLS = ['Daily_Bias', 'Session', 'Zone_Pct', 'EMA_Dist', 'Price_SMA50', 
+    #                 'EMA_Cross', 'RSI_norm', 'FVG_Bull', 'FVG_Bear', 'OB_Bull', 'OB_Bear', 
+    #                 'Swept_High', 'Swept_Low']
+    
+    features = pd.DataFrame(index=df.index)
+    features['Daily_Bias'] = np.where(df['EMA9'] > df['EMA21'], 1, -1) # Simplified bias
+    features['Session'] = (df.index.hour % 3) # Simplified session
+    features['Zone_Pct'] = ((df['Close'] - df['Low'].rolling(50).min()) / 
+                            (df['High'].rolling(50).max() - df['Low'].rolling(50).min())).fillna(0.5)
+    features['EMA_Dist'] = abs(df['Close'] - df['EMA21']) / (df['ATR'] + 1e-9)
+    features['Price_SMA50'] = (df['Close'] - df['SMA50']) / (df['ATR'] + 1e-9)
+    features['EMA_Cross'] = (df['EMA9'] > df['EMA21']).astype(int)
+    features['RSI_norm'] = df['RSI'] / 100.0
+    features['FVG_Bull'] = (df['Low'] > df['High'].shift(2)).astype(int)
+    features['FVG_Bear'] = (df['High'] < df['Low'].shift(2)).astype(int)
+    features['OB_Bull'] = ((df['Close'].shift(1) < df['Open'].shift(1)) & (df['Close'] > df['Open'])).astype(int)
+    features['OB_Bear'] = ((df['Close'].shift(1) > df['Open'].shift(1)) & (df['Close'] < df['Open'])).astype(int)
+    features['Swept_High'] = (df['High'] > df['High'].rolling(24).max().shift(1)).astype(int)
+    features['Swept_Low'] = (df['Low'] < df['Low'].rolling(24).min().shift(1)).astype(int)
+    
+    features = features.fillna(0)
+
+    model_path = f"models/{pair}_model.json"
     if os.path.exists(model_path):
         print(f"Loading XGBoost Analyst Model for {pair}...")
         xgb_model = xgb.XGBClassifier()
         xgb_model.load_model(model_path)
         
-        # In a full system, we would calculate 50+ features here (RSI, EMA, FVG).
-        # For this Kaggle training scaffolding, we simulate the XGBoost inference
-        # by passing dummy features to the loaded model to ensure the pipeline works.
-        # (You can drop in the full feature engineering block from ai-trading-bot here).
-        
-        num_features = xgb_model.n_features_in_
-        dummy_features = np.zeros((len(df), num_features))
-        
-        probs = xgb_model.predict_proba(dummy_features)
-        df['Long_Prob'] = probs[:, 1]
-        df['Short_Prob'] = probs[:, 0]
+        # Verify feature count matches
+        if xgb_model.n_features_in_ == 13:
+            probs = xgb_model.predict_proba(features.values)
+            df['Long_Prob'] = probs[:, 1]
+            df['Short_Prob'] = probs[:, 0]
+        else:
+            print(f"Feature mismatch for {pair}. Using 50/50 fallback.")
+            df['Long_Prob'] = 0.5
+            df['Short_Prob'] = 0.5
     else:
         print(f"⚠️ No XGBoost model found for {pair}. Using neutral 50/50 probabilities.")
         df['Long_Prob'] = 0.5
         df['Short_Prob'] = 0.5
         
-    df['ATR'] = df['Close'].rolling(14).std().fillna(0.001)
+    df['ATR'] = df['ATR'].fillna(0.001)
     return df
 
 PAIRS = ["EURUSD=X", "BTC-USD", "GC=F"]
